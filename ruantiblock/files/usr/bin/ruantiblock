@@ -32,6 +32,17 @@ export HTML_DIR="/www"
 
 ### Режим обработки пакетов в правилах nftables (1 - Tor, 2 - VPN, 3 - Прозрачный прокси)
 export PROXY_MODE=1
+### Включить поддержку IPv6 (0 - выкл, 1 - вкл). При включении создается зеркальный стек
+### nftables-таблица/наборы семейства ip6, IPv6-маршруты и двойные dnsmasq-директивы nftset=.
+### Требует, чтобы VPN-туннель предоставлял IPv6-связность (адрес inet6 у IF_VPN).
+export ENABLE_IPV6=0
+### IPv6 шлюз для VPN конфигурации. Если не задан, используется IPv6 адрес VPN интерфейса.
+### Если туннель не дает IPv6, оставьте пустым и установите ENABLE_IPV6=0.
+export VPN_GW_IP6=""
+### Приватные IPv6 сети для режима полного прокси, через пробел
+export FPROXY_PRIVATE_NETS6="fc00::/7 fe80::/10 ::1/128"
+### Список IPv6 адресов хостов для фильтра (ALLOWED_HOSTS_MODE), через пробел
+export ALLOWED_HOSTS_LIST6=""
 ### Применять правила проксификации для трафика локальных сервисов роутера (0 - выкл, 1 - вкл)
 export PROXY_LOCAL_CLIENTS=0
 ### Удаление записей сетов перед началом обновления (для освобождения оперативной памяти перед обновлением сетов) (0 - выкл, 1 - вкл)
@@ -105,7 +116,7 @@ export USER_INSTANCES_DIR="${CONFIG_DIR}/user_instances"
 ### Директория списков записей пользователя
 export USER_LISTS_DIR="${CONFIG_DIR}/user_lists"
 ### Переменные экземпляров записей пользователя
-export USER_INSTANCE_VARS="U_ENABLED U_NAME U_PROXY_MODE U_TOR_TRANS_PORT U_ONION_DNS_ADDR U_IF_VPN U_VPN_GW_IP U_T_PROXY_TYPE U_T_PROXY_PORT_TCP U_T_PROXY_PORT_UDP U_T_PROXY_ALLOW_UDP U_USER_ENTRIES_DNS U_USER_ENTRIES_REMOTE U_ENABLE_ENTRIES_REMOTE_PROXY U_ENABLE_FPROXY U_FPROXY_LIST"
+export USER_INSTANCE_VARS="U_ENABLED U_NAME U_PROXY_MODE U_TOR_TRANS_PORT U_ONION_DNS_ADDR U_IF_VPN U_VPN_GW_IP U_VPN_GW_IP6 U_T_PROXY_TYPE U_T_PROXY_PORT_TCP U_T_PROXY_PORT_UDP U_T_PROXY_ALLOW_UDP U_USER_ENTRIES_DNS U_USER_ENTRIES_REMOTE U_ENABLE_ENTRIES_REMOTE_PROXY U_ENABLE_FPROXY U_FPROXY_LIST U_FPROXY_LIST6"
 ### Кол-во экземпляров записей пользователя (не более 50!)
 export USER_INSTANCES_MAX=5
 ### Режим списка IP адресов исключаемых из обхода блокировок (0 - выкл, 1 - вкл)
@@ -287,11 +298,41 @@ export NFTSET_BLLIST_PROXY_TYPE="ipv4_addr"
 export NFTSET_CIDR_TYPE="ipv4_addr"
 export NFTSET_IP_TYPE="ipv4_addr"
 export NFTSET_DNSMASQ_TYPE="ipv4_addr"
+### IPv6-стек (зеркальные наборы в таблице семейства ip6). Активен при ENABLE_IPV6=1.
+export NFT_TABLE6="ip6 r6"
+export NFT_TABLE_DNSMASQ6="6#ip6#r6"
+export NFTSET_LOCAL_IP6="local_ip6"
+export NFTSET_ALLOWED_HOSTS6="allowed_ip6"
+export NFTSET_BYPASS_IP6="bi6"
+export NFTSET_BYPASS_FQDN6="bd6"
+export NFTSET_FPROXY6="fproxy6"
+export NFTSET_FPROXY_LOCAL6="fproxy_local6"
+export NFTSET_BLLIST_PROXY6="bllist_proxy6"
+export NFTSET_ONION6="onion6"
+export NFTSET_CIDR6="c6"
+export NFTSET_IP6="i6"
+export NFTSET_DNSMASQ6="d6"
+export NFTSET_LOCAL_IP6_TYPE="ipv6_addr"
+export NFTSET_ALLOWED_HOSTS6_TYPE="ipv6_addr"
+export NFTSET_BYPASS_IP6_TYPE="ipv6_addr"
+export NFTSET_BYPASS_FQDN6_TYPE="ipv6_addr"
+export NFTSET_FPROXY6_TYPE="ipv6_addr"
+export NFTSET_FPROXY_LOCAL6_TYPE="ipv6_addr"
+export NFTSET_BLLIST_PROXY6_TYPE="ipv6_addr"
+export NFTSET_CIDR6_TYPE="ipv6_addr"
+export NFTSET_IP6_TYPE="ipv6_addr"
+export NFTSET_DNSMASQ6_TYPE="ipv6_addr"
 export NFTSET_CIDR_PATTERN="set %s {type ${NFTSET_CIDR_TYPE};size ${NFTSET_MAXELEM_CIDR};policy ${NFTSET_POLICY_CIDR};flags interval;auto-merge;"
 export NFTSET_IP_PATTERN="set %s {type ${NFTSET_IP_TYPE};size ${NFTSET_MAXELEM_IP};policy ${NFTSET_POLICY_IP};flags dynamic;"
 export NFTSET_CIDR_STRING_MAIN=$(printf "$NFTSET_CIDR_PATTERN" "${NFTSET_CIDR}")
 export NFTSET_IP_STRING_MAIN=$(printf "$NFTSET_IP_PATTERN" "${NFTSET_IP}")
 export NFTSET_BYPASS_IP_STRING="set ${NFTSET_BYPASS_IP} {type ${NFTSET_BYPASS_IP_TYPE};size ${NFTSET_MAXELEM_BYPASS_IP};policy ${NFTSET_POLICY_CIDR};flags interval;auto-merge;"
+### IPv6-шаблоны наборов
+export NFTSET_CIDR6_PATTERN="set %s {type ${NFTSET_CIDR6_TYPE};size ${NFTSET_MAXELEM_CIDR};policy ${NFTSET_POLICY_CIDR};flags interval;auto-merge;"
+export NFTSET_IP6_PATTERN="set %s {type ${NFTSET_IP6_TYPE};size ${NFTSET_MAXELEM_IP};policy ${NFTSET_POLICY_IP};flags dynamic;"
+export NFTSET_CIDR6_STRING_MAIN=$(printf "$NFTSET_CIDR6_PATTERN" "${NFTSET_CIDR6}")
+export NFTSET_IP6_STRING_MAIN=$(printf "$NFTSET_IP6_PATTERN" "${NFTSET_IP6}")
+export NFTSET_BYPASS_IP6_STRING="set ${NFTSET_BYPASS_IP6} {type ${NFTSET_BYPASS_IP6_TYPE};size ${NFTSET_MAXELEM_BYPASS_IP};policy ${NFTSET_POLICY_CIDR};flags interval;auto-merge;"
 export UPDATE_STATUS_FILE="${DATA_DIR}/update_status"
 export USER_ENTRIES_STATUS_FILE="${DATA_DIR}/user_entries_status"
 U_PID_FILE="${RUN_FILES_DIR}/${NAME}_update.pid"
@@ -437,6 +478,16 @@ FlushNftSets() {
     done
 }
 
+### Очистка наборов в IPv6-таблице (только при ENABLE_IPV6=1)
+FlushNftSets6() {
+    [ "$ENABLE_IPV6" = "1" ] || return 0
+    local _set
+    for _set in "$@"
+    do
+        $NFT_CMD flush set $NFT_TABLE6 "$_set" &> /dev/null
+    done
+}
+
 FlushInstancesNftSets() {
     local _arg="$1" _name
     for _name in $USER_INSTANCES_ALL " "
@@ -449,9 +500,11 @@ FlushInstancesNftSets() {
         case "$_arg" in
             bllist)
                 FlushNftSets "${NFTSET_CIDR}${_name}" "${NFTSET_IP}${_name}" "${NFTSET_DNSMASQ}${_name}" "${NFTSET_ONION}${_name}"
+                FlushNftSets6 "${NFTSET_CIDR6}${_name}" "${NFTSET_IP6}${_name}" "${NFTSET_DNSMASQ6}${_name}" "${NFTSET_ONION6}${_name}"
             ;;
             *)
                 FlushNftSets "${NFTSET_FPROXY}${_name}" "${NFTSET_BLLIST_PROXY}${_name}" "${NFTSET_CIDR}${_name}" "${NFTSET_IP}${_name}" "${NFTSET_DNSMASQ}${_name}" "${NFTSET_ONION}${_name}"
+                FlushNftSets6 "${NFTSET_FPROXY6}${_name}" "${NFTSET_BLLIST_PROXY6}${_name}" "${NFTSET_CIDR6}${_name}" "${NFTSET_IP6}${_name}" "${NFTSET_DNSMASQ6}${_name}" "${NFTSET_ONION6}${_name}"
             ;;
         esac
     done
@@ -462,7 +515,7 @@ FormatNftSetElemsList() {
 }
 
 UpdateLocalIpSets() {
-    local _local_ips _fproxy_private
+    local _local_ips _local_ips6 _fproxy_private _fproxy_private6
     _local_ips=$($IP_CMD -4 addr list 2> /dev/null | $AWK_CMD '/inet/{if($2 !~ /^(127|0)/) printf $2 ","}')
     FlushNftSets "$NFTSET_LOCAL_IP"
     if [ -n "$_local_ips" ]; then
@@ -476,10 +529,26 @@ UpdateLocalIpSets() {
     if [ -n "$_local_ips" ]; then
         $NFT_CMD add element $NFT_TABLE "$NFTSET_FPROXY_LOCAL" { "$_local_ips" }
     fi
+    ### IPv6: локальные адреса интерфейсов и приватные сети
+    if [ "$ENABLE_IPV6" = "1" ]; then
+        _local_ips6=$($IP_CMD -6 addr list 2> /dev/null | $AWK_CMD '/inet6/{if($2 !~ /^(::1|fe80|fc00|fd00)/) printf $2 ","}')
+        FlushNftSets6 "$NFTSET_LOCAL_IP6"
+        if [ -n "$_local_ips6" ]; then
+            $NFT_CMD add element $NFT_TABLE6 "$NFTSET_LOCAL_IP6" { "$_local_ips6" }
+        fi
+        FlushNftSets6 "$NFTSET_FPROXY_LOCAL6"
+        _fproxy_private6=$(FormatNftSetElemsList "$FPROXY_PRIVATE_NETS6")
+        if [ -n "$_fproxy_private6" ]; then
+            $NFT_CMD add element $NFT_TABLE6 "$NFTSET_FPROXY_LOCAL6" { "$_fproxy_private6" }
+        fi
+        if [ -n "$_local_ips6" ]; then
+            $NFT_CMD add element $NFT_TABLE6 "$NFTSET_FPROXY_LOCAL6" { "$_local_ips6" }
+        fi
+    fi
 }
 
 AddBaseNftSets() {
-    local _allowed_hosts
+    local _allowed_hosts _allowed_hosts6
     $NFT_CMD add set $NFT_TABLE "$NFTSET_LOCAL_IP" { type "$NFTSET_LOCAL_IP_TYPE"\; policy "$NFTSET_POLICY_CIDR"\; flags interval\; auto-merge\; }
     $NFT_CMD add set $NFT_TABLE "$NFTSET_ALLOWED_HOSTS" { type "$NFTSET_ALLOWED_HOSTS_TYPE"\; policy "$NFTSET_POLICY_CIDR"\; flags interval\; auto-merge\; }
     _allowed_hosts=$(FormatNftSetElemsList "$ALLOWED_HOSTS_LIST")
@@ -489,11 +558,23 @@ AddBaseNftSets() {
     $NFT_CMD add set $NFT_TABLE "$NFTSET_BYPASS_IP" { type "$NFTSET_BYPASS_IP_TYPE"\; size $NFTSET_MAXELEM_BYPASS_IP\; policy "$NFTSET_POLICY_CIDR"\; flags interval\; auto-merge\; }
     $NFT_CMD add set $NFT_TABLE "$NFTSET_BYPASS_FQDN" { type "$NFTSET_BYPASS_FQDN_TYPE"\; size $NFTSET_MAXELEM_BYPASS_FQDN\; policy "$NFTSET_POLICY_DNSMASQ"\; flags dynamic,timeout\; timeout "$NFTSET_DNSMASQ_TIMEOUT"\; }
     $NFT_CMD add set $NFT_TABLE "$NFTSET_FPROXY_LOCAL" { type "$NFTSET_FPROXY_LOCAL_TYPE"\; policy "$NFTSET_POLICY_CIDR"\; flags interval\; auto-merge\; }
+    ### IPv6-базовые наборы
+    if [ "$ENABLE_IPV6" = "1" ]; then
+        $NFT_CMD add set $NFT_TABLE6 "$NFTSET_LOCAL_IP6" { type "$NFTSET_LOCAL_IP6_TYPE"\; policy "$NFTSET_POLICY_CIDR"\; flags interval\; auto-merge\; }
+        $NFT_CMD add set $NFT_TABLE6 "$NFTSET_ALLOWED_HOSTS6" { type "$NFTSET_ALLOWED_HOSTS6_TYPE"\; policy "$NFTSET_POLICY_CIDR"\; flags interval\; auto-merge\; }
+        _allowed_hosts6=$(FormatNftSetElemsList "$ALLOWED_HOSTS_LIST6")
+        if [ -n "$_allowed_hosts6" ]; then
+            $NFT_CMD add element $NFT_TABLE6 "$NFTSET_ALLOWED_HOSTS6" { "$_allowed_hosts6" }
+        fi
+        $NFT_CMD add set $NFT_TABLE6 "$NFTSET_BYPASS_IP6" { type "$NFTSET_BYPASS_IP6_TYPE"\; size $NFTSET_MAXELEM_BYPASS_IP\; policy "$NFTSET_POLICY_CIDR"\; flags interval\; auto-merge\; }
+        $NFT_CMD add set $NFT_TABLE6 "$NFTSET_BYPASS_FQDN6" { type "$NFTSET_BYPASS_FQDN6_TYPE"\; size $NFTSET_MAXELEM_BYPASS_FQDN\; policy "$NFTSET_POLICY_DNSMASQ"\; flags dynamic,timeout\; timeout "$NFTSET_DNSMASQ_TIMEOUT"\; }
+        $NFT_CMD add set $NFT_TABLE6 "$NFTSET_FPROXY_LOCAL6" { type "$NFTSET_FPROXY_LOCAL6_TYPE"\; policy "$NFTSET_POLICY_CIDR"\; flags interval\; auto-merge\; }
+    fi
     UpdateLocalIpSets
 }
 
 MakeInstanceNftSets() {
-    local _name="$1" _fproxy_list="$2" _fproxy_hosts
+    local _name="$1" _fproxy_list="$2" _fproxy_list6="$3" _fproxy_hosts _fproxy_hosts6
     if [ "$_name" = " " ]; then
         _name=""
     else
@@ -509,6 +590,19 @@ MakeInstanceNftSets() {
         $NFT_CMD add element $NFT_TABLE "${NFTSET_FPROXY}${_name}" { "$_fproxy_hosts" }
     fi
     $NFT_CMD add set $NFT_TABLE "${NFTSET_BLLIST_PROXY}${_name}" { type "$NFTSET_BLLIST_PROXY_TYPE"\; policy "$NFTSET_POLICY_IP"\; flags dynamic\; }
+    ### IPv6-наборы инстанса
+    if [ "$ENABLE_IPV6" = "1" ]; then
+        $NFT_CMD add set $NFT_TABLE6 "${NFTSET_CIDR6}${_name}" { type "$NFTSET_CIDR6_TYPE"\; size $NFTSET_MAXELEM_CIDR\; policy "$NFTSET_POLICY_CIDR"\; flags interval\; auto-merge\; }
+        $NFT_CMD add set $NFT_TABLE6 "${NFTSET_IP6}${_name}" { type "$NFTSET_IP6_TYPE"\; size $NFTSET_MAXELEM_IP\; policy "$NFTSET_POLICY_IP"\; flags dynamic\; }
+        $NFT_CMD add set $NFT_TABLE6 "${NFTSET_DNSMASQ6}${_name}" { type "$NFTSET_DNSMASQ6_TYPE"\; size $NFTSET_MAXELEM_DNSMASQ\; policy "$NFTSET_POLICY_DNSMASQ"\; flags dynamic,timeout\; timeout "$NFTSET_DNSMASQ_TIMEOUT"\; }
+        $NFT_CMD add set $NFT_TABLE6 "${NFTSET_ONION6}${_name}" { type "$NFTSET_DNSMASQ6_TYPE"\; size $NFTSET_MAXELEM_DNSMASQ\; policy "$NFTSET_POLICY_DNSMASQ"\; flags dynamic,timeout\; timeout "$NFTSET_DNSMASQ_TIMEOUT"\; }
+        $NFT_CMD add set $NFT_TABLE6 "${NFTSET_FPROXY6}${_name}" { type "$NFTSET_FPROXY6_TYPE"\; policy "$NFTSET_POLICY_CIDR"\; flags interval\; auto-merge\; }
+        _fproxy_hosts6=$(FormatNftSetElemsList "$_fproxy_list6")
+        if [ -n "$_fproxy_hosts6" ]; then
+            $NFT_CMD add element $NFT_TABLE6 "${NFTSET_FPROXY6}${_name}" { "$_fproxy_hosts6" }
+        fi
+        $NFT_CMD add set $NFT_TABLE6 "${NFTSET_BLLIST_PROXY6}${_name}" { type "$NFTSET_BLLIST_PROXY6_TYPE"\; policy "$NFTSET_POLICY_IP"\; flags dynamic\; }
+    fi
 }
 
 AddInstancesNftSets() {
@@ -516,14 +610,14 @@ AddInstancesNftSets() {
     for _inst in $USER_INSTANCES_ALL_FNAMES
     do
         IncludeUserInstanceVars "$_inst"
-        MakeInstanceNftSets "$U_NAME" "$U_FPROXY_LIST"
+        MakeInstanceNftSets "$U_NAME" "$U_FPROXY_LIST" "$U_FPROXY_LIST6"
         ClearUserInstanceVars
     done
-    MakeInstanceNftSets " " "$FPROXY_LIST"
+    MakeInstanceNftSets " " "$FPROXY_LIST" ""
 }
 
 UpdateBllistProxySet() {
-    local _name="$1" _urls="$2" _host _ip_string=""
+    local _name="$1" _urls="$2" _host _ip_string="" _ip_string6=""
     if [ "$_name" = " " ]; then
         _name=""
     else
@@ -551,18 +645,29 @@ UpdateBllistProxySet() {
         if printf "$_host" | $AWK_CMD '{exit ($0 ~ /^([0-9]{1,3}.){3}[0-9]{1,3}$/) ? 0 : 1}'; then
             _ip_string="${_ip_string}${_host} "
         else
+            ### IPv4 (без изменений)
             _ip_string="${_ip_string}$($NSLOOKUP_CMD $_host 2> /dev/null | $AWK_CMD '/^Address: ([0-9]{1,3}.){3}[0-9]{1,3}$/ {printf $2" "}')"
+            ### IPv6: ловим строки Address с IPv6-адресами
+            if [ "$ENABLE_IPV6" = "1" ]; then
+                _ip_string6="${_ip_string6}$($NSLOOKUP_CMD $_host 2> /dev/null | $AWK_CMD '/^Address: [0-9a-fA-F:]+$/ {printf $2" "}')"
+            fi
         fi
     done
     _ip_string=$(FormatNftSetElemsList "$_ip_string")
+    if [ "$ENABLE_IPV6" = "1" ]; then
+        _ip_string6=$(FormatNftSetElemsList "$_ip_string6")
+    fi
 
     if [ $DEBUG -ge 1 ]; then
-        echo "  ruantiblock.UpdateBllistProxySet()._ip_string=${_ip_string}; _name=${_name}" >&2
-        MakeLogRecord "debug" "ruantiblock.UpdateBllistProxySet()._ip_string=${_ip_string}; _name=${_name}"
+        echo "  ruantiblock.UpdateBllistProxySet()._ip_string=${_ip_string}; _ip_string6=${_ip_string6}; _name=${_name}" >&2
+        MakeLogRecord "debug" "ruantiblock.UpdateBllistProxySet()._ip_string=${_ip_string}; _ip_string6=${_ip_string6}; _name=${_name}"
     fi
 
     if [ -n "$_ip_string" ]; then
         $NFT_CMD add element $NFT_TABLE "${NFTSET_BLLIST_PROXY}${_name}" { "$_ip_string" }
+    fi
+    if [ "$ENABLE_IPV6" = "1" -a -n "$_ip_string6" ]; then
+        $NFT_CMD add element $NFT_TABLE6 "${NFTSET_BLLIST_PROXY6}${_name}" { "$_ip_string6" }
     fi
 }
 
@@ -605,7 +710,7 @@ AddUserInstancesNftRules() {
             _route_table_id=0
         fi
         _pkts_mark=$(($_pkts_mark + 1))
-        NftInstanceAdd "\"$U_NAME\"" $_pkts_mark ${U_PROXY_MODE:=$INSTANCES_DEF_PROXY_MODE} ${U_TOR_TRANS_PORT:=$INSTANCES_DEF_TOR_TRANS_PORT} $_route_table_id "\"${U_IF_VPN:=$INSTANCES_DEF_IF_VPN}\"" ${U_T_PROXY_TYPE:=$INSTANCES_DEF_T_PROXY_TYPE} ${U_T_PROXY_PORT_TCP:=$INSTANCES_DEF_T_PROXY_PORT_TCP} ${U_T_PROXY_PORT_UDP:=$INSTANCES_DEF_T_PROXY_PORT_UDP} ${U_T_PROXY_ALLOW_UDP:=$INSTANCES_DEF_T_PROXY_ALLOW_UDP} ${U_ENABLE_ENTRIES_REMOTE_PROXY:=$INSTANCES_DEF_ENABLE_BLLIST_PROXY} ${U_ENABLE_FPROXY:=$INSTANCES_DEF_ENABLE_FPROXY} "\"$U_VPN_GW_IP\""
+        NftInstanceAdd "\"$U_NAME\"" $_pkts_mark ${U_PROXY_MODE:=$INSTANCES_DEF_PROXY_MODE} ${U_TOR_TRANS_PORT:=$INSTANCES_DEF_TOR_TRANS_PORT} $_route_table_id "\"${U_IF_VPN:=$INSTANCES_DEF_IF_VPN}\"" ${U_T_PROXY_TYPE:=$INSTANCES_DEF_T_PROXY_TYPE} ${U_T_PROXY_PORT_TCP:=$INSTANCES_DEF_T_PROXY_PORT_TCP} ${U_T_PROXY_PORT_UDP:=$INSTANCES_DEF_T_PROXY_PORT_UDP} ${U_T_PROXY_ALLOW_UDP:=$INSTANCES_DEF_T_PROXY_ALLOW_UDP} ${U_ENABLE_ENTRIES_REMOTE_PROXY:=$INSTANCES_DEF_ENABLE_BLLIST_PROXY} ${U_ENABLE_FPROXY:=$INSTANCES_DEF_ENABLE_FPROXY} "\"$U_VPN_GW_IP\"" "\"$U_VPN_GW_IP6\""
         ClearUserInstanceVars
     done
 }
@@ -643,7 +748,7 @@ AddNftRules() {
     NftAddBaseChains $_chain_prio_first $_chain_prio_local $_chain_prio_fproxy
     NftAddActionChains $_chain_prio_action
     AddUserInstancesNftRules
-    NftInstanceAdd "\" \"" $PKTS_MARK_START ${PROXY_MODE:=$INSTANCES_DEF_PROXY_MODE} ${TOR_TRANS_PORT:=$INSTANCES_DEF_TOR_TRANS_PORT} $_route_table_id "\"${IF_VPN:=$INSTANCES_DEF_IF_VPN}\"" ${T_PROXY_TYPE:=$INSTANCES_DEF_T_PROXY_TYPE} ${T_PROXY_PORT_TCP:=$INSTANCES_DEF_T_PROXY_PORT_TCP} ${T_PROXY_PORT_UDP:=$INSTANCES_DEF_T_PROXY_PORT_UDP} ${T_PROXY_ALLOW_UDP:=$INSTANCES_DEF_T_PROXY_ALLOW_UDP} ${ENABLE_BLLIST_PROXY:=$INSTANCES_DEF_ENABLE_BLLIST_PROXY} ${ENABLE_FPROXY:=$INSTANCES_DEF_ENABLE_FPROXY} "\"$VPN_GW_IP\""
+    NftInstanceAdd "\" \"" $PKTS_MARK_START ${PROXY_MODE:=$INSTANCES_DEF_PROXY_MODE} ${TOR_TRANS_PORT:=$INSTANCES_DEF_TOR_TRANS_PORT} $_route_table_id "\"${IF_VPN:=$INSTANCES_DEF_IF_VPN}\"" ${T_PROXY_TYPE:=$INSTANCES_DEF_T_PROXY_TYPE} ${T_PROXY_PORT_TCP:=$INSTANCES_DEF_T_PROXY_PORT_TCP} ${T_PROXY_PORT_UDP:=$INSTANCES_DEF_T_PROXY_PORT_UDP} ${T_PROXY_ALLOW_UDP:=$INSTANCES_DEF_T_PROXY_ALLOW_UDP} ${ENABLE_BLLIST_PROXY:=$INSTANCES_DEF_ENABLE_BLLIST_PROXY} ${ENABLE_FPROXY:=$INSTANCES_DEF_ENABLE_FPROXY} "\"$VPN_GW_IP\"" "\"$VPN_GW_IP6\""
     if [ "$PROXY_LOCAL_CLIENTS" = "1" ]; then
         NftAddLocalClientsRule
     fi
@@ -663,6 +768,9 @@ DeleteNftRules() {
 
 SetNetConfig() {
     $NFT_CMD add table $NFT_TABLE
+    if [ "$ENABLE_IPV6" = "1" ]; then
+        $NFT_CMD add table $NFT_TABLE6
+    fi
     AddBaseNftSets
     AddInstancesNftSets
     AddNftRules
@@ -672,11 +780,16 @@ DropNetConfig() {
     DeleteNftRules
     FlushInstancesNftSets
     FlushNftSets "$NFTSET_LOCAL_IP" "$NFTSET_ALLOWED_HOSTS" "$NFTSET_FPROXY_LOCAL" "$NFTSET_BLLIST_PROXY" "$NFTSET_BYPASS_IP" "$NFTSET_BYPASS_FQDN"
+    FlushNftSets6 "$NFTSET_LOCAL_IP6" "$NFTSET_ALLOWED_HOSTS6" "$NFTSET_FPROXY_LOCAL6" "$NFTSET_BLLIST_PROXY6" "$NFTSET_BYPASS_IP6" "$NFTSET_BYPASS_FQDN6"
 }
 
 DestroyNetConfig() {
     $NFT_CMD flush table $NFT_TABLE &> /dev/null
     $NFT_CMD delete table $NFT_TABLE &> /dev/null
+    if [ "$ENABLE_IPV6" = "1" ]; then
+        $NFT_CMD flush table $NFT_TABLE6 &> /dev/null
+        $NFT_CMD delete table $NFT_TABLE6 &> /dev/null
+    fi
 }
 
 CheckStatus() {
@@ -692,9 +805,16 @@ GetVpnRouteStatus() {
             _ret_val=1
             break
         fi
+        if [ "$ENABLE_IPV6" = "1" ] && ! NftRouteStatus6 $(($VPN_ROUTE_TABLE_ID_START + $_i)); then
+            _ret_val=1
+            break
+        fi
         _i=$(($_i + 1))
     done
     if [ "$PROXY_MODE" = "2" ] && ! NftRouteStatus $VPN_ROUTE_TABLE_ID_START; then
+        _ret_val=1
+    fi
+    if [ "$PROXY_MODE" = "2" -a "$ENABLE_IPV6" = "1" ] && ! NftRouteStatus6 $VPN_ROUTE_TABLE_ID_START; then
         _ret_val=1
     fi
     return $_ret_val
@@ -744,14 +864,19 @@ AddBypassEntries() {
         printf "" > "$DNSMASQ_DATA_FILE_BYPASS"
         printf "" > "$IP_DATA_FILE_BYPASS"
         printf "flush set %s %s\nflush set %s %s\n" "$NFT_TABLE" "$NFTSET_BYPASS_IP" "$NFT_TABLE" "$NFTSET_BYPASS_FQDN" >> "$IP_DATA_FILE_BYPASS"
+        if [ "$ENABLE_IPV6" = "1" ]; then
+            printf "flush set %s %s\nflush set %s %s\n" "$NFT_TABLE6" "$NFTSET_BYPASS_IP6" "$NFT_TABLE6" "$NFTSET_BYPASS_FQDN6" >> "$IP_DATA_FILE_BYPASS"
+        fi
     fi
     FlushNftSets "$NFTSET_BYPASS_IP" "$NFTSET_BYPASS_FQDN"
+    FlushNftSets6 "$NFTSET_BYPASS_IP6" "$NFTSET_BYPASS_FQDN6"
     if [ "$BYPASS_MODE" = "1" ]; then
         if [ -f "$BYPASS_ENTRIES_FILE" ]; then
             $AWK_CMD '
                 BEGIN {
                     delete ip_array;
                     delete fqdn_array;
+                    delete ip6_array;
                 }
                 function writeIpList(array,  _str) {
                     for(i in array) {
@@ -767,6 +892,9 @@ AddBypassEntries() {
                         printf "server=/%s/%s\n", val, dns >> ENVIRON["DNSMASQ_DATA_FILE_BYPASS"];
                     };
                     printf "nftset=/%s/%s#%s\n", val, ENVIRON["NFT_TABLE_DNSMASQ"], ENVIRON["NFTSET_BYPASS_FQDN"] >> ENVIRON["DNSMASQ_DATA_FILE_BYPASS"];
+                    if(ENVIRON["ENABLE_IPV6"] == "1") {
+                        printf "nftset=/%s/%s#%s\n", val, ENVIRON["NFT_TABLE_DNSMASQ6"], ENVIRON["NFTSET_BYPASS_FQDN6"] >> ENVIRON["DNSMASQ_DATA_FILE_BYPASS"];
+                    };
                 };
                 function writeFqdnEntries() {
                     for(i in fqdn_array) {
@@ -779,6 +907,12 @@ AddBypassEntries() {
                     if($0 ~ /^[0-9]{1,3}([.][0-9]{1,3}){3}([\057][0-9]{1,2})?$/) {
                         ip_array[$0];
                     }
+                    else if(ENVIRON["ENABLE_IPV6"] == "1" && $0 ~ /^[0-9a-fA-F:]+[\057][0-9]{1,3}$/) {
+                        ip6_array[$0];
+                    }
+                    else if(ENVIRON["ENABLE_IPV6"] == "1" && $0 ~ /^[0-9a-fA-F:]+$/) {
+                        ip6_array[$0];
+                    }
                     else if($0 ~ /^([a-z0-9._-]+[.])*([a-z]{2,}|xn--[a-z0-9]+)([ ][0-9]{1,3}([.][0-9]{1,3}){3}([#][0-9]{2,5})?)?$/) {
                         fqdn_array[$0];
                     };
@@ -789,6 +923,13 @@ AddBypassEntries() {
                         printf "elements={%s};", writeIpList(ip_array) >> ENVIRON["IP_DATA_FILE_BYPASS"];
                     };
                     printf "}\n}\n" >> ENVIRON["IP_DATA_FILE_BYPASS"];
+                    if(ENVIRON["ENABLE_IPV6"] == "1") {
+                        printf "table %s {\n%s", ENVIRON["NFT_TABLE6"], ENVIRON["NFTSET_BYPASS_IP6_STRING"] >> ENVIRON["IP_DATA_FILE_BYPASS"];
+                        if(length(ip6_array) > 0) {
+                            printf "elements={%s};", writeIpList(ip6_array) >> ENVIRON["IP_DATA_FILE_BYPASS"];
+                        };
+                        printf "}\n}\n" >> ENVIRON["IP_DATA_FILE_BYPASS"];
+                    };
                     writeFqdnEntries();
                 }' "$BYPASS_ENTRIES_FILE"
         fi
@@ -824,10 +965,17 @@ AddUserEntries() {
         fi
 
         printf "flush set %s %s\nflush set %s %s\n" "$NFT_TABLE" "${NFTSET_CIDR}.${U_NAME}" "$NFT_TABLE" "${NFTSET_IP}.${U_NAME}" >> "$_ip_data_file_user_instances"
+        if [ "$ENABLE_IPV6" = "1" ]; then
+            printf "flush set %s %s\nflush set %s %s\n" "$NFT_TABLE6" "${NFTSET_CIDR6}.${U_NAME}" "$NFT_TABLE6" "${NFTSET_IP6}.${U_NAME}" >> "$_ip_data_file_user_instances"
+        fi
 
         if [ "$U_PROXY_MODE" != "2" -a "$U_PROXY_MODE" != "3" ]; then
-            ### Запись для .onion
+            ### Запись для .onion (IPv4)
             printf "server=/onion/%s\nnftset=/onion/%s#%s\n" "$U_ONION_DNS_ADDR" "$NFT_TABLE_DNSMASQ" "${NFTSET_ONION}.${U_NAME}" >> "$_dnsmasq_data_file_user_instances"
+            ### Запись для .onion (IPv6) — зеркальная директива nftset=
+            if [ "$ENABLE_IPV6" = "1" ]; then
+                printf "nftset=/onion/%s#%s\n" "$NFT_TABLE_DNSMASQ6" "${NFTSET_ONION6}.${U_NAME}" >> "$_dnsmasq_data_file_user_instances"
+            fi
         fi
 
         if [ "$U_ENABLE_ENTRIES_REMOTE_PROXY" = "1" ]; then
@@ -840,9 +988,18 @@ AddUserEntries() {
         export U_NAME
         export U_ENTRIES_REMOTE
         export U_ENTRIES_DNS
+        export ENABLE_IPV6
+        export NFT_TABLE6
+        export NFTSET_CIDR6_PATTERN
+        export NFTSET_IP6_PATTERN
+        export NFTSET_DNSMASQ6
+        export NFT_TABLE_DNSMASQ6
         export I_NFTSET_CIDR_STRING="$(printf "$NFTSET_CIDR_PATTERN" "${NFTSET_CIDR}.${U_NAME}")"
         export I_NFTSET_IP_STRING="$(printf "$NFTSET_IP_PATTERN" "${NFTSET_IP}.${U_NAME}")"
         export I_NFTSET_DNSMASQ="${NFTSET_DNSMASQ}.${U_NAME}"
+        export I_NFTSET_CIDR6_STRING="$(printf "$NFTSET_CIDR6_PATTERN" "${NFTSET_CIDR6}.${U_NAME}")"
+        export I_NFTSET_IP6_STRING="$(printf "$NFTSET_IP6_PATTERN" "${NFTSET_IP6}.${U_NAME}")"
+        export I_NFTSET_DNSMASQ6="${NFTSET_DNSMASQ6}.${U_NAME}"
         export I_IP_DATA_FILE="$_ip_data_file_user_instances"
         export I_DNSMASQ_DATA_FILE="$_dnsmasq_data_file_user_instances"
         export I_USER_ENTRIES_STATUS_FILE="$_user_entries_status_file"
@@ -854,6 +1011,9 @@ AddUserEntries() {
         unset I_NFTSET_CIDR_STRING
         unset I_NFTSET_IP_STRING
         unset I_NFTSET_DNSMASQ
+        unset I_NFTSET_CIDR6_STRING
+        unset I_NFTSET_IP6_STRING
+        unset I_NFTSET_DNSMASQ6
         unset I_IP_DATA_FILE
         unset I_DNSMASQ_DATA_FILE
         unset I_USER_ENTRIES_STATUS_FILE
@@ -861,6 +1021,7 @@ AddUserEntries() {
 
         if [ "$U_ENABLE_ENTRIES_REMOTE_PROXY" = "1" ]; then
             FlushNftSets "${NFTSET_BLLIST_PROXY}.${U_NAME}"
+            FlushNftSets6 "${NFTSET_BLLIST_PROXY6}.${U_NAME}"
         fi
 
         if [ $_instance_return_code -ne 0 ]; then
@@ -971,8 +1132,12 @@ GetMainInstanceEntries() {
         if [ "$PROXY_MODE" = "2" -o "$PROXY_MODE" = "3" ]; then
             printf "" >> "$DNSMASQ_DATA_FILE"
         else
-            ### Запись для .onion в $DNSMASQ_DATA_FILE
+            ### Запись для .onion в $DNSMASQ_DATA_FILE (IPv4)
             printf "server=/onion/%s\nnftset=/onion/%s#%s\n" "$ONION_DNS_ADDR" "$NFT_TABLE_DNSMASQ" "$NFTSET_ONION" >> "$DNSMASQ_DATA_FILE"
+            ### Запись для .onion (IPv6) — зеркальная директива nftset=
+            if [ "$ENABLE_IPV6" = "1" ]; then
+                printf "nftset=/onion/%s#%s\n" "$NFT_TABLE_DNSMASQ6" "$NFTSET_ONION6" >> "$DNSMASQ_DATA_FILE"
+            fi
         fi
     fi
     return $_return_code
@@ -1046,6 +1211,31 @@ CheckDnsmasqConfDir() {
     return 0
 }
 
+### Постобработка dnsmasq-конфига: для каждой строки вида
+###   nftset=/domain/4#ip#r#<set>
+### добавляет зеркальную IPv6-строку
+###   nftset=/domain/6#ip6#r6#<set>6
+### Необходима для пресетов блэклистов, в которых готовый .dnsmasq-файл
+### скачивается с сервера и содержит только IPv4-форму nftset=.
+### Совместима с busybox awk (без match(...,arr)).
+PostProcessDnsmasqForIPv6() {
+    local _file="$1"
+    [ -f "$_file" ] || return 0
+    [ "$ENABLE_IPV6" = "1" ] || return 0
+    $AWK_CMD '
+    {
+        print
+        if($0 ~ /^nftset=\/.*\/4#ip#r#/) {
+            line=$0
+            sub(/^nftset=\//, "", line)
+            sub(/\/4#ip#r#.*$/, "", line)
+            tail=$0
+            sub(/^nftset=\/.*\/4#ip#r#/, "", tail)
+            printf "nftset=/%s/6#ip6#r6#%s6\n", line, tail
+        }
+    }' "$_file" > "${_file}.tmp6" && mv -f "${_file}.tmp6" "$_file"
+}
+
 Update() {
     local _arg="$1" _return_code=0 _upd_sets_ret_code=0
     MakeToken
@@ -1064,6 +1254,11 @@ Update() {
         fi
         GetBlacklistFiles
         _return_code=$?
+        ### Постобработка dnsmasq-конфига для IPv6 (добавляет зеркальные nftset=.../6#ip6#r6#...6)
+        if [ $_return_code -eq 0 -a "$ENABLE_IPV6" = "1" ]; then
+            PostProcessDnsmasqForIPv6 "$DNSMASQ_DATA_FILE"
+            PostProcessDnsmasqForIPv6 "$DNSMASQ_DATA_FILE_USER_INSTANCES"
+        fi
         FlushInstancesNftSets bllist
         UpdateBllistSets
         _upd_sets_ret_code=$?
