@@ -208,6 +208,7 @@ return view.extend({
 		let dnsmasq_confdir       = section.dnsmasq_confdir;
 		let bllist_preset         = section.bllist_preset;
 		let bllist_module         = section.bllist_module;
+		let enable_ipv6           = section.enable_ipv6;
 
 		let btn_enable = elems[2] || document.getElementById('btn_enable');
 		if(enabled_flag == true) {
@@ -269,7 +270,8 @@ return view.extend({
 			app_status_code,
 			bllist_preset,
 			bllist_module,
-			vpn_route_status_code)
+			vpn_route_status_code,
+			enable_ipv6)
 		);
 
 		if(!poll.active()) {
