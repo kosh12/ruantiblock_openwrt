@@ -639,3 +639,50 @@ msgstr "верный IP-адрес#порт"
 
 msgid "valid URL"
 msgstr "верный URL"
+
+# IPv6 (новые строки, добавленные для поддержки IPv6)
+
+msgid "Enable IPv6 support"
+msgstr "Включить поддержку IPv6"
+
+msgid "Creates a mirror IPv6 nftables table, IPv6 routes and dual dnsmasq nftset= directives. Requires IPv6 connectivity in the VPN tunnel (an inet6 address on the VPN interface). If the tunnel does not provide IPv6, leave this option off, otherwise IPv6 packets for the blacklisted domains will be blackholed."
+msgstr "Создаёт зеркальную таблицу nftables для IPv6, IPv6-маршруты и двойные dnsmasq-директивы nftset=. Требуется IPv6-связность в VPN-туннеле (наличие inet6-адреса на VPN-интерфейсе). Если туннель не предоставляет IPv6, оставьте опцию выключенной, иначе IPv6-пакеты к доменам из блэклиста уйдут в blackhole."
+
+msgid "IPv6 addresses for host filter"
+msgstr "IPv6-адреса для фильтра хостов"
+
+msgid "IPv6 hosts filter, used together with the IPv4 list above when IPv6 support is enabled."
+msgstr "Фильтр IPv6-хостов, используется вместе с IPv4-списком выше при включённой поддержке IPv6."
+
+msgid "IPv4 and IPv6 addresses. For IPv6 addresses, IPv6 support must be enabled."
+msgstr "IPv4 и IPv6-адреса. Для IPv6-адресов поддержка IPv6 должна быть включена."
+
+msgid "IPv4 and IPv6 addresses. For IPv6 addresses, IPv6 support must be enabled in the main settings."
+msgstr "IPv4 и IPv6-адреса. Для IPv6-адресов поддержка IPv6 должна быть включена в основных настройках."
+
+msgid "Private IPv6 networks for full proxy mode"
+msgstr "Приватные IPv6-сети для режима полного прокси"
+
+msgid "IPv6 networks excluded from full proxy. Defaults to ULA, link-local and loopback."
+msgstr "IPv6-сети, исключаемые из полного прокси. По умолчанию ULA, link-local и loopback."
+
+msgid "VPN gateway IPv6 address"
+msgstr "IPv6-адрес шлюза VPN"
+
+msgid "IPv6 gateway for the VPN. If not specified, the IPv6 address of the VPN interface is used (link-local fe80 addresses are skipped). Leave empty if the tunnel does not provide IPv6."
+msgstr "IPv6-шлюз VPN. Если не указан, используется IPv6-адрес VPN-интерфейса (link-local fe80-адреса пропускаются). Оставьте пустым, если туннель не предоставляет IPv6."
+
+msgid "IPv6 gateway for the VPN. If not specified, the IPv6 address of the VPN interface is used (fe80 link-local addresses are skipped). Leave empty if the tunnel does not provide IPv6."
+msgstr "IPv6-шлюз VPN. Если не указан, используется IPv6-адрес VPN-интерфейса (fe80 link-local-адреса пропускаются). Оставьте пустым, если туннель не предоставляет IPv6."
+
+msgid "IPv6"
+msgstr "IPv6"
+
+msgid "IPv6 address"
+msgstr "IPv6-адрес"
+
+msgid "Dnsmasq (IPv6)"
+msgstr "Dnsmasq (IPv6)"
+
+msgid "Dnsmasq bypass (IPv6)"
+msgstr "Обход Dnsmasq (IPv6)"
