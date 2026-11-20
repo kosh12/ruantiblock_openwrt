@@ -99,13 +99,41 @@ return view.extend({
 					};
 				};
 			};
+			// IPv6-зеркала dnsmasq-наборов (названия dnsmasq6/dnsmasq6_bypass/dnsmasq6_user_instances
+			// добавляются бэкендом html-info при enable_ipv6=1). Список имён наборов в этих
+			// блоках — d6 / d6.<instance> / bd6 / и т.п. Уже обрабатываются formatRuleDescription.
+			if(data.dnsmasq6) {
+				output.dnsmasq6 = parseDnsmasqData(data.dnsmasq6);
+			};
+			if(data.dnsmasq6_bypass) {
+				output.dnsmasq6_bypass = parseDnsmasqData(data.dnsmasq6_bypass);
+			};
+			if(data.dnsmasq6_user_instances) {
+				output.dnsmasq6_user_instances = [];
+				if(data.dnsmasq6_user_instances && data.dnsmasq6_user_instances.length > 1) {
+					for(let i of data.dnsmasq6_user_instances) {
+						if(i.nftables) {
+							let name;
+							i.nftables.forEach(e => {
+								if(e.set) {
+									name = e.set.name;
+								};
+							});
+							output.dnsmasq6_user_instances.push([ name, parseDnsmasqData(i) ]);
+						};
+					};
+				};
+			};
 		};
 		return output;
 	},
 
-	makeDnsmasqTable(ipDataArray, title) {
+	makeDnsmasqTable(ipDataArray, title, family) {
 		let lines   = `<tr class="tr"><td class="td center">${_('No entries available...')}</td></tr>`;
 		let ipTable = E('table', { 'id': 'ipTable', 'class': 'table' });
+
+		// Заголовок колонки: "IP address" для IPv4, "IPv6 address" для IPv6
+		let addr_label = (family === '6') ? _('IPv6 address') : _('IP address');
 
 		ipDataArray.sort((a, b) => a[1] - b[1]);
 
@@ -114,7 +142,7 @@ return view.extend({
 			ipDataArray.forEach((e, i) => {
 				if(e) {
 					lines.push(
-						`<tr class="tr"><td class="td left" data-title="${_('IP address')}">${e[0]}</td>` +
+						`<tr class="tr"><td class="td left" data-title="${addr_label}">${e[0]}</td>` +
 						`<td class="td left" data-title="${_('Timeout')}">${this.secToTimeString(e[1] | 0)}</td></tr>`
 					);
 				};
@@ -123,7 +151,7 @@ return view.extend({
 
 			ipTable.append(
 				E('tr', { 'class': 'tr table-titles' }, [
-					E('th', { 'class': 'th left', 'style': 'width:33%' }, _('IP address')),
+					E('th', { 'class': 'th left', 'style': 'width:33%' }, addr_label),
 					E('th', { 'class': 'th left' }, _('Timeout')),
 				])
 			);
@@ -220,6 +248,32 @@ return view.extend({
 					rdbTableWrapper.innerHTML = '';
 					rdbTableWrapper.append(this.makeDnsmasqTable(nft_data.dnsmasq_bypass, _('Dnsmasq bypass')));
 				};
+
+				// IPv6 таблицы dnsmasq (создаются в render только при enable_ipv6=1)
+				let rd6TableWrapper = document.getElementById('rd6TableWrapper');
+				if(rd6TableWrapper) {
+					rd6TableWrapper.innerHTML = '';
+					if(nft_data.dnsmasq6) {
+						rd6TableWrapper.append(this.makeDnsmasqTable(nft_data.dnsmasq6, _('Dnsmasq (IPv6)'), '6'));
+					};
+				};
+
+				let rds6TableWrapper = document.getElementById('rds6TableWrapper');
+				if(rds6TableWrapper) {
+					rds6TableWrapper.innerHTML = '';
+					if(nft_data.dnsmasq6_user_instances) {
+						for(let i of nft_data.dnsmasq6_user_instances) {
+							rds6TableWrapper.append(this.makeDnsmasqTable(i[1], _('Dnsmasq (IPv6)') + ' ' + i[0], '6'));
+						};
+					};
+				};
+				let rdb6TableWrapper = document.getElementById('rdb6TableWrapper');
+				if(rdb6TableWrapper) {
+					rdb6TableWrapper.innerHTML = '';
+					if(nft_data.dnsmasq6_bypass) {
+						rdb6TableWrapper.append(this.makeDnsmasqTable(nft_data.dnsmasq6_bypass, _('Dnsmasq bypass (IPv6)'), '6'));
+					};
+				};
 			} else {
 				if(poll.active()) {
 					poll.stop();
@@ -229,10 +283,28 @@ return view.extend({
 	},
 
 	formatRuleDescription(s) {
+		// IPv4 наборы (оригинал): c, i, d, onion, bi, bd, fproxy, bllist_proxy, local_ip, allowed_ip
+		// IPv6 наборы (новое):     c6, i6, d6, onion6, bi6, bd6, fproxy6, bllist_proxy6, local_ip6, allowed_ip6
+		// Сначала проверяем IPv6-имена (c6|i6|d6|onion6...), потом IPv4.
 		return (s.length >= 1) ? (
-			s.replace(/^c\.?(.*)/, '$1 CIDR').replace(/^i\.?(.*)/, '$1 IP')
-			.replace(/^d\.?(.*)/, '$1 dnsmasq').replace(/^onion\.?(.*)/, '$1 onion')
-			.replace(/^bi/, 'bypass IP').replace(/^bd/, 'bypass dnsmasq')
+			s.replace(/^local_ip6\.?(.*)/, '$1 local IPv6 addresses')
+				.replace(/^allowed_ip6\.?(.*)/, '$1 allowed IPv6 hosts')
+				.replace(/^fproxy_local6\.?(.*)/, '$1 fproxy local IPv6')
+				.replace(/^fproxy6\.?(.*)/, '$1 fproxy IPv6')
+				.replace(/^bllist_proxy6\.?(.*)/, '$1 blacklist-proxy IPv6')
+				.replace(/^c6\.?(.*)/, '$1 CIDR IPv6')
+				.replace(/^i6\.?(.*)/, '$1 IP IPv6')
+				.replace(/^d6\.?(.*)/, '$1 dnsmasq IPv6')
+				.replace(/^onion6\.?(.*)/, '$1 onion IPv6')
+				.replace(/^bi6/, 'bypass IP IPv6').replace(/^bd6/, 'bypass dnsmasq IPv6')
+				.replace(/^c\.?(.*)/, '$1 CIDR').replace(/^i\.?(.*)/, '$1 IP')
+				.replace(/^d\.?(.*)/, '$1 dnsmasq').replace(/^onion\.?(.*)/, '$1 onion')
+				.replace(/^bi/, 'bypass IP').replace(/^bd/, 'bypass dnsmasq')
+				.replace(/^local_ip\.?(.*)/, '$1 local IPv4 addresses')
+				.replace(/^allowed_ip\.?(.*)/, '$1 allowed IPv4 hosts')
+				.replace(/^fproxy_local\.?(.*)/, '$1 fproxy local IPv4')
+				.replace(/^fproxy\.?(.*)/, '$1 fproxy IPv4')
+				.replace(/^bllist_proxy\.?(.*)/, '$1 blacklist-proxy IPv4')
 		) : '';
 	},
 
@@ -253,12 +325,16 @@ return view.extend({
 			data = JSON.parse(data);
 		} catch(e) {};
 
-		let update_status        = null,
-			user_entries         = null,
-			rules                = null,
-			dnsmasq              = null,
-			dnsmasqUserInstances = null,
-			dnsmasqBypass        = null;
+		let update_status         = null,
+			user_entries          = null,
+			rules                 = null,
+			dnsmasq               = null,
+			dnsmasqUserInstances  = null,
+			dnsmasqBypass         = null,
+			// IPv6-таблицы dnsmasq (отображаются только при enable_ipv6=1)
+			dnsmasq6              = null,
+			dnsmasq6UserInstances = null,
+			dnsmasq6Bypass        = null;
 
 		if(data) {
 			if(data.status === 'enabled') {
@@ -388,6 +464,38 @@ return view.extend({
 					dnsmasqBypass = rdbTableWrapper;
 				};
 
+				// IPv6-зеркала dnsmasq-таблиц (присутствуют только при enable_ipv6=1)
+				if(nft_data.dnsmasq6) {
+					let rd6TableWrapper = E('div', {
+						'id'   : 'rd6TableWrapper',
+						'style': 'width:100%',
+					}, this.makeDnsmasqTable(nft_data.dnsmasq6, _('Dnsmasq (IPv6)'), '6'));
+					dnsmasq6 = rd6TableWrapper;
+				};
+
+				if(nft_data.dnsmasq6_user_instances) {
+					let rds6TableWrapper = E('div', {
+						'id'   : 'rds6TableWrapper',
+						'style': 'width:100%',
+					});
+
+					for(let i of nft_data.dnsmasq6_user_instances) {
+						rds6TableWrapper.append(this.makeDnsmasqTable(i[1], _('Dnsmasq (IPv6)') + ' ' + i[0], '6'));
+					};
+
+					if(nft_data.dnsmasq6_user_instances.length > 0) {
+						dnsmasq6UserInstances = rds6TableWrapper;
+					};
+				};
+
+				if(nft_data.dnsmasq6_bypass) {
+					let rdb6TableWrapper = E('div', {
+						'id'   : 'rdb6TableWrapper',
+						'style': 'width:100%',
+					}, this.makeDnsmasqTable(nft_data.dnsmasq6_bypass, _('Dnsmasq bypass (IPv6)'), '6'));
+					dnsmasq6Bypass = rdb6TableWrapper;
+				};
+
 				poll.add(L.bind(this.pollInfo, this), this.pollInterval);
 			} else {
 				update_status = E('em', {}, _('Status') + ' : ' + _('disabled'));
@@ -436,6 +544,31 @@ return view.extend({
 			layout.splice(7, 0,
 				E('div', { 'class': 'cbi-section fade-in' },
 					E('div', { 'class': 'cbi-section-node' }, dnsmasq)
+				)
+			);
+		};
+
+		// IPv6-таблицы dnsmasq (показываются только если html-info вернул v6-данные)
+		if(dnsmasq6Bypass) {
+			layout.splice(8, 0,
+				E('div', { 'class': 'cbi-section fade-in' },
+					E('div', { 'class': 'cbi-section-node' }, dnsmasq6Bypass)
+				)
+			);
+		};
+
+		if(dnsmasq6UserInstances) {
+			layout.splice(9, 0,
+				E('div', { 'class': 'cbi-section fade-in' },
+					E('div', { 'class': 'cbi-section-node' }, dnsmasq6UserInstances)
+				)
+			);
+		};
+
+		if(dnsmasq6) {
+			layout.splice(10, 0,
+				E('div', { 'class': 'cbi-section fade-in' },
+					E('div', { 'class': 'cbi-section-node' }, dnsmasq6)
 				)
 			);
 		};
