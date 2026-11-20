@@ -531,7 +531,7 @@ msgid "Updating"
 msgstr ""
 
 msgid "URLs of remote user entries file"
-""
+msgstr ""
 
 msgid "Use optional DNS resolver"
 msgstr ""
@@ -595,3 +595,51 @@ msgstr ""
 
 msgid "valid URL"
 msgstr ""
+
+# IPv6 (новые строки, добавленные для поддержки IPv6)
+
+msgid "Enable IPv6 support"
+msgstr ""
+
+msgid "Creates a mirror IPv6 nftables table, IPv6 routes and dual dnsmasq nftset= directives. Requires IPv6 connectivity in the VPN tunnel (an inet6 address on the VPN interface). If the tunnel does not provide IPv6, leave this option off, otherwise IPv6 packets for the blacklisted domains will be blackholed."
+msgstr ""
+
+msgid "IPv6 addresses for host filter"
+msgstr ""
+
+msgid "IPv6 hosts filter, used together with the IPv4 list above when IPv6 support is enabled."
+msgstr ""
+
+msgid "IPv4 and IPv6 addresses. For IPv6 addresses, IPv6 support must be enabled."
+msgstr ""
+
+msgid "IPv4 and IPv6 addresses. For IPv6 addresses, IPv6 support must be enabled in the main settings."
+msgstr ""
+
+msgid "Private IPv6 networks for full proxy mode"
+msgstr ""
+
+msgid "IPv6 networks excluded from full proxy. Defaults to ULA, link-local and loopback."
+msgstr ""
+
+msgid "VPN gateway IPv6 address"
+msgstr ""
+
+msgid "IPv6 gateway for the VPN. If not specified, the IPv6 address of the VPN interface is used (link-local fe80 addresses are skipped). Leave empty if the tunnel does not provide IPv6."
+msgstr ""
+
+msgid "IPv6 gateway for the VPN. If not specified, the IPv6 address of the VPN interface is used (fe80 link-local addresses are skipped). Leave empty if the tunnel does not provide IPv6."
+msgstr ""
+
+msgid "IPv6"
+msgstr ""
+
+msgid "IPv6 address"
+msgstr ""
+
+msgid "Dnsmasq (IPv6)"
+msgstr ""
+
+msgid "Dnsmasq bypass (IPv6)"
+msgstr ""
+
