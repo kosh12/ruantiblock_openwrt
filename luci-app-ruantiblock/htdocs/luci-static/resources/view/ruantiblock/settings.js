@@ -21,7 +21,11 @@ return view.extend({
 	},
 
 	validateIpPort(section, value) {
-		return (/^$|^([0-9]{1,3}\.){3}[0-9]{1,3}(#[\d]{2,5})?$/.test(value)) ? true : _('Expecting:')
+		// IPv4:  1.2.3.4  |  1.2.3.4#53
+		// IPv6:  ::1  |  2001:db8::1  |  [2001:db8::1]#53  |  2001:db8::1#53
+		// dnsmasq принимает bracketed [ipv6]#port; для "::" (compressed) тоже работает
+		return (/^$|^([0-9]{1,3}\.){3}[0-9]{1,3}(#[\d]{2,5})?$/.test(value)
+			|| /^$|^(\[[0-9a-fA-F:]+\]|[0-9a-fA-F:]+)(#[\d]{2,5})?$/.test(value)) ? true : _('Expecting:')
 			+ ` ${_('One of the following:')}\n - ${_('valid IP address')}\n - ${_('valid address#port')}\n`;
 	},
 
@@ -218,25 +222,39 @@ return view.extend({
 		o.description = _('Reduces RAM consumption during update');
 		o.rmempty = false;
 
-		// ENABLE_TMP_DOWNLOADS
-		o = s.taboption('general_tab', form.Flag, 'enable_tmp_downloads',
-			_('Safe blacklist update'),
-			_('If update fails, the old blacklist configuration will be retained. Temporary files are used, when updating the blacklist (increases memory consumption).'));
-		o.rmempty = false;
-		o.default = 0;
+	// ENABLE_TMP_DOWNLOADS
+	o = s.taboption('general_tab', form.Flag, 'enable_tmp_downloads',
+		_('Safe blacklist update'),
+		_('If update fails, the old blacklist configuration will be retained. Temporary files are used, when updating the blacklist (increases memory consumption).'));
+	o.rmempty = false;
+	o.default = 0;
 
-		// ALLOWED_HOSTS_MODE
-		o = s.taboption('general_tab', form.ListValue, 'allowed_hosts_mode',
-			_('Host filter'));
-		o.value('0', _('Disabled'));
-		o.value('1', _('Only listed hosts'));
-		o.value('2', _('All hosts except listed'));
-		o.description = _('Restriction the local network hosts that are allowed to bypass blocking');
+	// ENABLE_IPV6
+	o = s.taboption('general_tab', form.Flag, 'enable_ipv6',
+		_('Enable IPv6 support'),
+		_('Creates a mirror IPv6 nftables table, IPv6 routes and dual dnsmasq nftset= directives. Requires IPv6 connectivity in the VPN tunnel (an inet6 address on the VPN interface). If the tunnel does not provide IPv6, leave this option off, otherwise IPv6 packets for the blacklisted domains will be blackholed.'));
+	o.rmempty = false;
+	o.default = 0;
 
-		// ALLOWED_HOSTS_LIST
-		o = s.taboption('general_tab', form.DynamicList, 'allowed_hosts_list',
-			_('IP addresses for host filter'));
-		o.datatype = 'ip4addr';
+	// ALLOWED_HOSTS_MODE
+	o = s.taboption('general_tab', form.ListValue, 'allowed_hosts_mode',
+		_('Host filter'));
+	o.value('0', _('Disabled'));
+	o.value('1', _('Only listed hosts'));
+	o.value('2', _('All hosts except listed'));
+	o.description = _('Restriction the local network hosts that are allowed to bypass blocking');
+
+	// ALLOWED_HOSTS_LIST
+	o = s.taboption('general_tab', form.DynamicList, 'allowed_hosts_list',
+		_('IP addresses for host filter'));
+	o.datatype = 'ip4addr';
+
+	// ALLOWED_HOSTS_LIST6 (IPv6 variant, active when enable_ipv6=1)
+	o = s.taboption('general_tab', form.DynamicList, 'allowed_hosts_list6',
+		_('IPv6 addresses for host filter'),
+		_('IPv6 hosts filter, used together with the IPv4 list above when IPv6 support is enabled.'));
+	o.datatype  = 'ip6addr';
+	o.depends   = { enable_ipv6: '1' };
 
 		// BYPASS_MODE
 		o = s.taboption('general_tab', form.Flag, 'bypass_mode',
@@ -318,10 +336,19 @@ return view.extend({
 		o.rmempty = false;
 		o.default = 0;
 
-		// FPROXY_LIST
-		o = ss.taboption('b_settings_tab', form.DynamicList, 'fproxy_list',
-			_('IP addresses for full proxy mode'));
-		o.datatype = 'ip4addr';
+	// FPROXY_LIST (IPv4+IPv6; datatype 'ipaddr' принимает оба семейства)
+	o = ss.taboption('b_settings_tab', form.DynamicList, 'fproxy_list',
+		_('IP addresses for full proxy mode'),
+		_('IPv4 and IPv6 addresses. For IPv6 addresses, IPv6 support must be enabled.'));
+	o.datatype = 'ipaddr';
+
+	// FPROXY_PRIVATE_NETS6 (IPv6 приватные сети для fproxy; активна при enable_ipv6=1)
+	o = ss.taboption('b_settings_tab', form.DynamicList, 'fproxy_private_nets6',
+		_('Private IPv6 networks for full proxy mode'),
+		_('IPv6 networks excluded from full proxy. Defaults to ULA, link-local and loopback.'));
+	o.datatype = 'ip6addr';
+	o.depends  = { enable_ipv6: '1' };
+	o.default  = 'fc00::/7 fe80::/10 ::1/128';
 
 
 		/* Tor tab */
@@ -362,11 +389,18 @@ return view.extend({
 		o.rmempty   = false;
 		o.default  = tools.defaultConfig.if_vpn;
 
-		// VPN_GW_IP
-		o = ss.taboption('b_vpn_tab', form.Value, 'vpn_gw_ip',
-			_('VPN gateway IP address'),
-			_('If not specified, the VPN interface address is used (or peer address for PPP protocols)'));
-		o.datatype = 'ip4addr(1)';
+	// VPN_GW_IP (IPv4)
+	o = ss.taboption('b_vpn_tab', form.Value, 'vpn_gw_ip',
+		_('VPN gateway IP address'),
+		_('If not specified, the VPN interface address is used (or peer address for PPP protocols)'));
+	o.datatype = 'ip4addr(1)';
+
+	// VPN_GW_IP6 (IPv6 шлюз VPN; активен при enable_ipv6=1)
+	o = ss.taboption('b_vpn_tab', form.Value, 'vpn_gw_ip6',
+		_('VPN gateway IPv6 address'),
+		_('IPv6 gateway for the VPN. If not specified, the IPv6 address of the VPN interface is used (link-local fe80 addresses are skipped). Leave empty if the tunnel does not provide IPv6.'));
+	o.datatype = 'ip6addr(1)';
+	o.depends  = { enable_ipv6: '1' };
 
 
 		/* Tproxy tab */
@@ -558,10 +592,11 @@ return view.extend({
 		o.default   = 0;
 		o.modalonly = true;
 
-		// U_FPROXY_LIST
+		// U_FPROXY_LIST (IPv4+IPv6)
 		o = ss.taboption('u_main_tab', form.DynamicList, 'u_fproxy_list',
-			_('IP addresses for full proxy mode'));
-		o.datatype  = 'ip4addr';
+			_('IP addresses for full proxy mode'),
+			_('IPv4 and IPv6 addresses. For IPv6 addresses, IPv6 support must be enabled in the main settings.'));
+		o.datatype  = 'ipaddr';
 		o.modalonly = true;
 
 
@@ -598,12 +633,20 @@ return view.extend({
 		o.default   = tools.defaultConfig.if_vpn;
 		o.modalonly = true;
 
-		// U_VPN_GW_IP
+		// U_VPN_GW_IP (IPv4)
 		o = ss.taboption('u_vpn_tab', form.Value, 'u_vpn_gw_ip',
 			_('VPN gateway IP address'),
 			_('If not specified, the VPN interface address is used (or peer address for PPP protocols)'));
 		o.datatype  = 'ip4addr(1)';
 		o.modalonly = true;
+
+		// U_VPN_GW_IP6 (IPv6 шлюз VPN инстанса; активен при enable_ipv6=1)
+		o = ss.taboption('u_vpn_tab', form.Value, 'u_vpn_gw_ip6',
+			_('VPN gateway IPv6 address'),
+			_('IPv6 gateway for the VPN. If not specified, the IPv6 address of the VPN interface is used (fe80 link-local addresses are skipped). Leave empty if the tunnel does not provide IPv6.'));
+		o.datatype  = 'ip6addr(1)';
+		o.modalonly = true;
+		o.depends   = { enable_ipv6: '1' };
 
 
 		/* User entries tproxy tab */
