@@ -59,11 +59,23 @@ echo | $AWK_CMD -v WGET_CMD="$WGET_CMD" -v WGET_PARAMS="$WGET_PARAMS" \
         if(length(dns) > 0) {
             printf "server=/%s/%s\n", val, dns >> DNSMASQ_DATA_FILE;
         };
-        ### IPv4-директива nftset=
-        printf "nftset=/%s/%s#%s\n", val, NFT_TABLE_DNSMASQ, NFTSET_DNSMASQ >> DNSMASQ_DATA_FILE;
-        ### IPv6-директива nftset= (зеркальная, только при ENABLE_IPV6=1)
+        ### dnsmasq поддерживает объединение нескольких наборов ТОЛЬКО через
+        ### запятую в ОДНОЙ строке nftset=. Две отдельные строки nftset= для
+        ### одного домена НЕ суммируются: domain_find_sets() (forward.c)
+        ### возвращает единственный список сетов последнего совпадения, а
+        ### парсер конфига (option.c, LOPT_NFTSET) ставит каждую новую строку
+        ### в ГОЛОВУ списка. Итог: побеждает строка, распарсенная ПЕРВОЙ
+        ### (IPv4), а add_to_nftset() с префиксом 4# молча отбрасывает
+        ### AAAA-адреса, и IPv6-набор d6.<name> никогда не наполняется.
+        ### Поэтому пишем одну объединённую строку (документированная форма):
+        ###   nftset=/dom/4#ip#r#d,6#ip6#r6#d6
         if(ENABLE_IPV6 == "1") {
-            printf "nftset=/%s/%s#%s\n", val, NFT_TABLE_DNSMASQ6, NFTSET_DNSMASQ6 >> DNSMASQ_DATA_FILE;
+            printf "nftset=/%s/%s#%s,%s#%s\n", val,
+                NFT_TABLE_DNSMASQ, NFTSET_DNSMASQ,
+                NFT_TABLE_DNSMASQ6, NFTSET_DNSMASQ6 >> DNSMASQ_DATA_FILE;
+        }
+        else {
+            printf "nftset=/%s/%s#%s\n", val, NFT_TABLE_DNSMASQ, NFTSET_DNSMASQ >> DNSMASQ_DATA_FILE;
         };
     };
     function writeFqdnEntries() {
@@ -264,6 +276,12 @@ echo | $AWK_CMD -v WGET_CMD="$WGET_CMD" -v WGET_PARAMS="$WGET_PARAMS" \
             writeFqdnEntries();
             for(i in download_results) {
                 print download_results[i] >> USER_ENTRIES_STATUS_FILE;
+            };
+            ### IPv6-счётчики отдельной строкой в STDOUT (не в status-файл:
+            ### его формат NF==4 читает LuCI info_output).
+            if(ENABLE_IPV6 == "1") {
+                printf " User entries (%s): IPv6 CIDR: %d, IPv6 IP: %d\n",
+                    U_NAME, length(cidr6_array), length(ip6_array);
             };
         };
         exit exit_code;
