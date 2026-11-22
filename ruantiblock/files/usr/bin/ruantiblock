@@ -884,16 +884,24 @@ AddBypassEntries() {
                     };
                     return _str;
                 };
-                function writeDNSData(val, dns) {
+                    function writeDNSData(val, dns) {
                     if(length(dns) == 0 && length(ENVIRON["BYPASS_ENTRIES_DNS"]) > 0) {
                         dns = ENVIRON["BYPASS_ENTRIES_DNS"];
                     };
                     if(length(dns) > 0) {
                         printf "server=/%s/%s\n", val, dns >> ENVIRON["DNSMASQ_DATA_FILE_BYPASS"];
                     };
-                    printf "nftset=/%s/%s#%s\n", val, ENVIRON["NFT_TABLE_DNSMASQ"], ENVIRON["NFTSET_BYPASS_FQDN"] >> ENVIRON["DNSMASQ_DATA_FILE_BYPASS"];
+                    ### Одна объединённая строка nftset= (IPv4,IPv6 через запятую):
+                    ### две отдельные строки для одного домона не суммируются dnsmasq
+                    ### (domain_find_sets возвращает только один список сетов —
+                    ### побеждает первая распарсенная IPv4-строка, AAAA отбрасывается).
                     if(ENVIRON["ENABLE_IPV6"] == "1") {
-                        printf "nftset=/%s/%s#%s\n", val, ENVIRON["NFT_TABLE_DNSMASQ6"], ENVIRON["NFTSET_BYPASS_FQDN6"] >> ENVIRON["DNSMASQ_DATA_FILE_BYPASS"];
+                        printf "nftset=/%s/%s#%s,%s#%s\n", val,
+                            ENVIRON["NFT_TABLE_DNSMASQ"], ENVIRON["NFTSET_BYPASS_FQDN"],
+                            ENVIRON["NFT_TABLE_DNSMASQ6"], ENVIRON["NFTSET_BYPASS_FQDN6"] >> ENVIRON["DNSMASQ_DATA_FILE_BYPASS"];
+                    }
+                    else {
+                        printf "nftset=/%s/%s#%s\n", val, ENVIRON["NFT_TABLE_DNSMASQ"], ENVIRON["NFTSET_BYPASS_FQDN"] >> ENVIRON["DNSMASQ_DATA_FILE_BYPASS"];
                     };
                 };
                 function writeFqdnEntries() {
@@ -970,11 +978,15 @@ AddUserEntries() {
         fi
 
         if [ "$U_PROXY_MODE" != "2" -a "$U_PROXY_MODE" != "3" ]; then
-            ### Запись для .onion (IPv4)
-            printf "server=/onion/%s\nnftset=/onion/%s#%s\n" "$U_ONION_DNS_ADDR" "$NFT_TABLE_DNSMASQ" "${NFTSET_ONION}.${U_NAME}" >> "$_dnsmasq_data_file_user_instances"
-            ### Запись для .onion (IPv6) — зеркальная директива nftset=
+            ### Запись для .onion — объединённая строка nftset= (IPv4,IPv6 через
+            ### запятую): две отдельные строки для одного домена не суммируются
+            ### dnsmasq (побеждает первая распарсенная, AAAA отбрасывается).
             if [ "$ENABLE_IPV6" = "1" ]; then
-                printf "nftset=/onion/%s#%s\n" "$NFT_TABLE_DNSMASQ6" "${NFTSET_ONION6}.${U_NAME}" >> "$_dnsmasq_data_file_user_instances"
+                printf "server=/onion/%s\nnftset=/onion/%s#%s,%s#%s\n" "$U_ONION_DNS_ADDR" \
+                    "$NFT_TABLE_DNSMASQ" "${NFTSET_ONION}.${U_NAME}" \
+                    "$NFT_TABLE_DNSMASQ6" "${NFTSET_ONION6}.${U_NAME}" >> "$_dnsmasq_data_file_user_instances"
+            else
+                printf "server=/onion/%s\nnftset=/onion/%s#%s\n" "$U_ONION_DNS_ADDR" "$NFT_TABLE_DNSMASQ" "${NFTSET_ONION}.${U_NAME}" >> "$_dnsmasq_data_file_user_instances"
             fi
         fi
 
@@ -1132,11 +1144,15 @@ GetMainInstanceEntries() {
         if [ "$PROXY_MODE" = "2" -o "$PROXY_MODE" = "3" ]; then
             printf "" >> "$DNSMASQ_DATA_FILE"
         else
-            ### Запись для .onion в $DNSMASQ_DATA_FILE (IPv4)
-            printf "server=/onion/%s\nnftset=/onion/%s#%s\n" "$ONION_DNS_ADDR" "$NFT_TABLE_DNSMASQ" "$NFTSET_ONION" >> "$DNSMASQ_DATA_FILE"
-            ### Запись для .onion (IPv6) — зеркальная директива nftset=
+            ### Запись для .onion — объединённая строка nftset= (IPv4,IPv6 через
+            ### запятую): две отдельные строки для одного домена не суммируются
+            ### dnsmasq (побеждает первая распарсенная, AAAA отбрасывается).
             if [ "$ENABLE_IPV6" = "1" ]; then
-                printf "nftset=/onion/%s#%s\n" "$NFT_TABLE_DNSMASQ6" "$NFTSET_ONION6" >> "$DNSMASQ_DATA_FILE"
+                printf "server=/onion/%s\nnftset=/onion/%s#%s,%s#%s\n" "$ONION_DNS_ADDR" \
+                    "$NFT_TABLE_DNSMASQ" "$NFTSET_ONION" \
+                    "$NFT_TABLE_DNSMASQ6" "$NFTSET_ONION6" >> "$DNSMASQ_DATA_FILE"
+            else
+                printf "server=/onion/%s\nnftset=/onion/%s#%s\n" "$ONION_DNS_ADDR" "$NFT_TABLE_DNSMASQ" "$NFTSET_ONION" >> "$DNSMASQ_DATA_FILE"
             fi
         fi
     fi
@@ -1211,27 +1227,79 @@ CheckDnsmasqConfDir() {
     return 0
 }
 
-### Постобработка dnsmasq-конфига: для каждой строки вида
-###   nftset=/domain/4#ip#r#<set>
-### добавляет зеркальную IPv6-строку
-###   nftset=/domain/6#ip6#r6#<set>6
-### Необходима для пресетов блэклистов, в которых готовый .dnsmasq-файл
-### скачивается с сервера и содержит только IPv4-форму nftset=.
-### Совместима с busybox awk (без match(...,arr)).
+### Постобработка dnsmasq-конфига для IPv6.
+###
+### Причина: dnsmasq НЕ суммирует несколько отдельных строк nftset= для
+### одного домена. В исходниках dnsmasq:
+###   - option.c (LOPT_NFTSET): каждая строка nftset= добавляется в ГОЛОВУ
+###     списка daemon->nftsets;
+###   - forward.c domain_find_sets(): возвращает ОДИН список сетов (последнее
+###     совпадение при обходе списка, >= затирает результат) — фактически
+###     побеждает строка, распарсенная ПЕРВОЙ;
+###   - nftset.c add_to_nftset(): префикс '4#' молча отбрасывает AAAA-адреса.
+### Итог: при двух строках
+###     nftset=/dom/4#ip#r#d
+###     nftset=/dom/6#ip6#r6#d6
+### AAAA-адреса домена 'dom' НИКОГДА не попадают в набор 'd6'.
+###
+### Документированная форма — ОДНА строка с наборами через запятую:
+###     nftset=/dom/4#ip#r#d,6#ip6#r6#d6
+###
+### Эта функция приводит файл к такой форме:
+###   1) объединяет пары раздельных строк (IPv4-строка + следующий за ней
+###      IPv6-зеркал) в одну строку с запятой;
+###   2) для одиночных IPv4-строк (preset-блэклисты, где IPv6-зеркала нет)
+###      дописывает в ту же строку IPv6-набор через запятую: имя IPv6-сета
+###      получается заменой ведущей 'd' на 'd6' (main: 'd'->'d6',
+###      user inst: 'd.list1'->'d6.list1').
+### Совместимо с busybox awk (без match(...,arr), без 2D-массивов).
 PostProcessDnsmasqForIPv6() {
     local _file="$1"
     [ -f "$_file" ] || return 0
     [ "$ENABLE_IPV6" = "1" ] || return 0
-    $AWK_CMD '
+    PP6_FILE="$_file" $AWK_CMD '
     {
+        line = $0
+        ### Сначала разбираемся с отложенной (pending) IPv4-строкой.
+        if(pending) {
+            if(line ~ /^nftset=\/[^,]*\/6#ip6#r6#[^,]*$/) {
+                ### IPv6-зеркало к отложенной IPv4-строке (обе без запятых):
+                ### объединить в одну строку с запятой.
+                v6_set = line
+                sub(/^nftset=\/.*\/6#ip6#r6#/, "", v6_set)
+                printf "nftset=/%s/4#ip#r#%s,6#ip6#r6#%s\n", v4_dom, v4_set, v6_set
+                pending = 0
+                next
+            }
+            ### Строка НЕ зеркало (другой домен, server=, пустая, комбинированная):
+            ### вывести отложенную IPv4-строку как объединённую — IPv4-набор +
+            ### сгенерированный IPv6-набор (имя: замена ведущей d на d6,
+            ### main d->d6, user inst d.list1->d6.list1).
+            v6_set = v4_set
+            sub(/^d/, "d6", v6_set)
+            printf "nftset=/%s/4#ip#r#%s,6#ip6#r6#%s\n", v4_dom, v4_set, v6_set
+            pending = 0
+            ### Текущая строка обрабатывается ниже по общим правилам.
+        }
+        if(line ~ /^nftset=\/[^,]*\/4#ip#r#[^,]*$/) {
+            ### Некомбинированная IPv4-строка (без запятых): отложить вывод.
+            v4_dom = line
+            sub(/^nftset=\//, "", v4_dom)
+            sub(/\/4#ip#r#.*$/, "", v4_dom)
+            v4_set = line
+            sub(/^nftset=\/.*\/4#ip#r#/, "", v4_set)
+            pending = 1
+            next
+        }
+        ### Все прочие строки (включая уже комбинированные с запятой) — как есть.
         print
-        if($0 ~ /^nftset=\/.*\/4#ip#r#/) {
-            line=$0
-            sub(/^nftset=\//, "", line)
-            sub(/\/4#ip#r#.*$/, "", line)
-            tail=$0
-            sub(/^nftset=\/.*\/4#ip#r#/, "", tail)
-            printf "nftset=/%s/6#ip6#r6#%s6\n", line, tail
+    }
+    END {
+        if(pending) {
+            ### Файл кончился сразу после IPv4-строки
+            v6_set = v4_set
+            sub(/^d/, "d6", v6_set)
+            printf "nftset=/%s/4#ip#r#%s,6#ip6#r6#%s\n", v4_dom, v4_set, v6_set
         }
     }' "$_file" > "${_file}.tmp6" && mv -f "${_file}.tmp6" "$_file"
 }
