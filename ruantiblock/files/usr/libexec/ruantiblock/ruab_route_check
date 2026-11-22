@@ -25,9 +25,14 @@ VpnRouteInstanceStatus() {
     local _route_table_id=$1
     ### IPv4
     $IP_CMD route show table $_route_table_id 2> /dev/null | $AWK_CMD 'BEGIN {code=1} /^(default|local)/ {code=0} END {exit code}' || return 1
-    ### IPv6 (только при ENABLE_IPV6=1)
+    ### IPv6 (только при ENABLE_IPV6=1).
+    ### Регулярка принимает 'default', 'local' И 'blackhole default'. Если VPN-туннель
+    ### не выдаёт глобальный IPv6-адрес (только fe80 link-local), реального
+    ### 'default via <gw6>' нет, но blackhole-маршрут подтверждает, что таблица
+    ### инициализирована. Без этого совпадения ruab_route_check бесконечно делает
+    ### reload и LuCI показывает "VPN routing error! Restart required".
     if [ "$ENABLE_IPV6" = "1" ]; then
-        $IP_CMD -6 route show table $_route_table_id 2> /dev/null | $AWK_CMD 'BEGIN {code=1} /^(default|local)/ {code=0} END {exit code}' || return 1
+        $IP_CMD -6 route show table $_route_table_id 2> /dev/null | $AWK_CMD 'BEGIN {code=1} /^(default|local|blackhole default)/ {code=0} END {exit code}' || return 1
     fi
     return 0
 }
