@@ -69,17 +69,13 @@ return baseclass.extend({
 	},
 
 	defaultConfig: {
-		'proxy_mode'             : '2',
-		'tor_trans_port'         : '9040',
-		'onion_dns_addr'         : '127.0.0.1#9053',
-		'if_vpn'                 : 'tun0',
-		't_proxy_port_tcp'       : '1100',
-		't_proxy_port_udp'       : '1100',
-		// IPv6-умолчания (используются только при enable_ipv6=1)
-		'enable_ipv6'            : '0',
-		'vpn_gw_ip6'             : '',
-		'fproxy_private_nets6'   : 'fc00::/7 fe80::/10 ::1/128',
-		'allowed_hosts_list6'     : '',
+		'proxy_mode'      : '2',
+		'tor_trans_port'  : '9040',
+		'onion_dns_addr'  : '127.0.0.1#9053',
+		'if_vpn'          : 'tun0',
+		't_proxy_port_tcp': '1100',
+		't_proxy_port_udp': '1100',
+		'enable_ipv6'     : '0',
 	},
 
 	callInitStatus: rpc.declare({
@@ -159,17 +155,14 @@ return baseclass.extend({
 				]);
 		};
 
-		// IPv6-индикатор: показывается только при enable_ipv6=1
-		let ipv6_badge = (enable_ipv6 == '1' || enable_ipv6 === 1 || enable_ipv6 === true)
-			? E('span', { 'class': 'label-status running', 'style': 'margin-left:6px' }, _('IPv6'))
-			: '';
-
 		return E('table', { 'class': 'table' }, [
 			E('tr', { 'class': 'tr' }, [
 				E('td', { 'class': 'td left', 'style': 'width:33%' }, _('Status')),
 				E('td', { 'class': 'td left' + spinning }, [
 					app_status_label,
-					ipv6_badge,
+					(enable_ipv6 == '1')
+						? E('span', { 'class': 'label-status ok', 'style': 'margin-left:0.5em' }, 'IPv6')
+						: '',
 					(app_status_code != 2 && vpn_route_status_code != 0)
 						? E('span', { 'class': 'label-status error' },
 							_('VPN routing error! Need restart'))
