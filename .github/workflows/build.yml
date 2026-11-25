@@ -1,0 +1,121 @@
+name: Build ruantiblock packages
+
+on:
+  # ручной запуск из вкладки Actions
+  workflow_dispatch:
+    inputs:
+      owrt_version:
+        description: "OpenWrt version"
+        required: true
+        default: "25.12.6"
+  # автоматический запуск при создании тега v*
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+# отменять предыдущий запуск, если запустился новый на том же refs
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  OWRT_VERSION: "25.12.6"
+  TARGET_DIR: "x86/64"                 # пакеты noarch, поэтому x86/64 — для любой архитектуры
+  PACKAGES_REPO: "kosh12/packages-openwrt"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Чекаут исходников форка (ваши Makefile и files/)
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      # 2. Кэш скачанного SDK-тарболла — чтобы не тянуть ~600 МБ каждый запуск
+      - name: Cache SDK tarball
+        id: cache-sdk
+        uses: actions/cache@v4
+        with:
+          path: /tmp/openwrt-sdk.tar.zst
+          key: sdk-${{ env.OWRT_VERSION }}-${{ env.TARGET_DIR }}
+
+      # 3. Скачать SDK + sha256sums, проверить
+      - name: Download SDK
+        if: steps.cache-sdk.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          BASE="https://downloads.openwrt.org/releases/${OWRT_VERSION}/targets/${TARGET_DIR}"
+          # находим точное имя файла (с версией gcc/musl оно может меняться)
+          SDK_FILE=$(curl -sL "${BASE}/" \
+            | grep -oE 'openwrt-sdk-[^"]*\.tar\.zst' | head -1)
+          echo "SDK_FILE=${SDK_FILE}"
+          curl -L -o /tmp/openwrt-sdk.tar.zst "${BASE}/${SDK_FILE}"
+          curl -L -o /tmp/sha256sums "${BASE}/sha256sums"
+          cd /tmp && grep "$(basename openwrt-sdk.tar.zst 2>/dev/null || echo openwrt-sdk)" sha256sums || true
+          # проверяем сумму
+          ( cd /tmp && grep "${SDK_FILE}" sha256sums | sha256sum -c - )
+
+      # 4. Распаковать SDK
+      - name: Extract SDK
+        run: |
+          mkdir -p "$HOME/sdk"
+          tar --zstd -xf /tmp/openwrt-sdk.tar.zst --strip-components=1 -C "$HOME/sdk"
+          echo "SDK_DIR=$HOME/sdk" >> "$GITHUB_ENV"
+
+      # 5. Подключить feeds (нужно для luci.mk)
+      - name: Update & install feeds
+        run: |
+          cd "$HOME/sdk"
+          ./scripts/feeds update -a
+          ./scripts/feeds install -p luci -a
+          ./scripts/feeds install -a
+
+      # 6. Привязать ваши пакеты в package/
+      - name: Link packages into SDK
+        run: |
+          cd "$HOME/sdk/package"
+          for p in ruantiblock ruantiblock-mod-lua ruantiblock-mod-py luci-app-ruantiblock; do
+            ln -sf "$GITHUB_WORKSPACE/$p" "$p"
+          done
+
+      # 7. Сборка
+      - name: Build packages
+        run: |
+          cd "$HOME/sdk"
+          make defconfig
+          for p in ruantiblock ruantiblock-mod-lua ruantiblock-mod-py luci-app-ruantiblock; do
+            echo "::group::Building $p"
+            make -j"$(nproc)" package/$p/compile V=s
+            echo "::endgroup::"
+          done
+
+      # 8. Собрать все .apk в одну папку
+      - name: Collect apks
+        run: |
+          mkdir -p dist
+          find "$HOME/sdk/bin/packages" -name '*.apk' -exec cp -v {} dist/ \;
+          ls -la dist/
+          # список файлов для следующих шагов
+          echo "## Built packages" >> "$GITHUB_STEP_SUMMARY"
+          for f in dist/*.apk; do echo "- \`$(basename "$f")\`" >> "$GITHUB_STEP_SUMMARY"; done
+
+      # 9. Артефакт — можно скачать из вкладки Actions
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ruantiblock-apk-${{ env.OWRT_VERSION }}
+          path: dist/*.apk
+          retention-days: 30
+
+      # 10. Публикация: создаём Release и крепим к нему все .apk
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" dist/*.apk \
+            --title "${GITHUB_REF_NAME}" \
+            --notes "Пакеты для OpenWrt 25.12.6 (noarch, подходят для любой архитектуры)."
