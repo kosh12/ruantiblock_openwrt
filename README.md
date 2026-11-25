@@ -15,6 +15,5 @@
 
 * Тестово попробовал добавить поддержку ipv6
 
-Подробно об установке и настройке: [https://github.com/gSpotx2f/ruantiblock_openwrt/wiki](https://github.com/gSpotx2f/ruantiblock_openwrt/wiki)
 
 ___________________
