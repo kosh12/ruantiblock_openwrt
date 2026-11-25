@@ -59,7 +59,6 @@ jobs:
         run: |
           mkdir -p "$HOME/sdk"
           tar --zstd -xf /tmp/openwrt-sdk.tar.zst --strip-components=1 -C "$HOME/sdk"
-          echo "SDK_DIR=$HOME/sdk" >> "$GITHUB_ENV"
 
       - name: Update & install feeds
         run: |
@@ -70,4 +69,43 @@ jobs:
       - name: Link packages into SDK
         run: |
           cd "$HOME/sdk/package"
-          for p in ruantiblock ruantiblock-mod-lua ruantiblock-mod-py luci
+          ln -sf "$GITHUB_WORKSPACE/ruantiblock" ruantiblock
+          ln -sf "$GITHUB_WORKSPACE/ruantiblock-mod-lua" ruantiblock-mod-lua
+          ln -sf "$GITHUB_WORKSPACE/ruantiblock-mod-py" ruantiblock-mod-py
+          ln -sf "$GITHUB_WORKSPACE/luci-app-ruantiblock" luci-app-ruantiblock
+          ls -la
+
+      - name: Build packages
+        run: |
+          cd "$HOME/sdk"
+          make defconfig
+          make -j"$(nproc)" package/ruantiblock/compile V=s
+          make -j"$(nproc)" package/ruantiblock-mod-lua/compile V=s
+          make -j"$(nproc)" package/ruantiblock-mod-py/compile V=s
+          make -j"$(nproc)" package/luci-app-ruantiblock/compile V=s
+
+      - name: Collect apks
+        run: |
+          mkdir -p dist
+          find "$HOME/sdk/bin/packages" -name '*.apk' -exec cp -v {} dist/ \;
+          ls -la dist/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: ruantiblock-apk-${{ env.OWRT_VERSION }}
+          path: dist/*.apk
+          retention-days: 30
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            gh release upload "${TAG}" dist/*.apk --clobber
+          else
+            gh release create "${TAG}" dist/*.apk --title "${TAG}" --notes "Packages for OpenWrt ${OWRT_VERSION} (noarch)."
+          fi
