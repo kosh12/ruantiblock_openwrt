@@ -32,12 +32,12 @@ jobs:
     steps:
       # 1. Чекаут исходников форка (ваши Makefile и files/)
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # 2. Кэш скачанного SDK-тарболла — чтобы не тянуть ~600 МБ каждый запуск
       - name: Cache SDK tarball
         id: cache-sdk
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: /tmp/openwrt-sdk.tar.zst
           key: sdk-${{ env.OWRT_VERSION }}-${{ env.TARGET_DIR }}
@@ -48,15 +48,16 @@ jobs:
         run: |
           set -euo pipefail
           BASE="https://downloads.openwrt.org/releases/${OWRT_VERSION}/targets/${TARGET_DIR}"
-          # находим точное имя файла (с версией gcc/musl оно может меняться)
           SDK_FILE=$(curl -sL "${BASE}/" \
             | grep -oE 'openwrt-sdk-[^"]*\.tar\.zst' | head -1)
           echo "SDK_FILE=${SDK_FILE}"
           curl -L -o /tmp/openwrt-sdk.tar.zst "${BASE}/${SDK_FILE}"
           curl -L -o /tmp/sha256sums "${BASE}/sha256sums"
-          cd /tmp && grep "$(basename openwrt-sdk.tar.zst 2>/dev/null || echo openwrt-sdk)" sha256sums || true
-          # проверяем сумму
-          ( cd /tmp && grep "${SDK_FILE}" sha256sums | sha256sum -c - )
+          EXPECTED=$(grep -F "${SDK_FILE}" /tmp/sha256sums | head -1 | awk '{print $1}')
+          ACTUAL=$(sha256sum /tmp/openwrt-sdk.tar.zst | awk '{print $1}')
+          echo "expected: ${EXPECTED}"
+          echo "actual:   ${ACTUAL}"
+          [ "${EXPECTED}" = "${ACTUAL}" ] || { echo "checksum mismatch!"; exit 1; 
 
       # 4. Распаковать SDK
       - name: Extract SDK
@@ -104,7 +105,7 @@ jobs:
 
       # 9. Артефакт — можно скачать из вкладки Actions
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ruantiblock-apk-${{ env.OWRT_VERSION }}
           path: dist/*.apk
